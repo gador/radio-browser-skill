@@ -2,6 +2,9 @@
 import re
 import json
 import inflect
+import pulsectl
+import socket
+
 from mycroft import intent_file_handler
 
 from pyradios import RadioBrowser
@@ -10,6 +13,49 @@ from word2number import w2n
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from mycroft.util.log import LOG
 
+def find_vlc():
+    '''
+    Find the input_sink used by VLC media player.
+    Returns input as int. Returns -1 if not found.
+    '''
+    cli = pulsectl.connect_to_cli(socket_timeout=1)
+    vlc_sink_input = -1
+    index_id = -1
+    cli.write("list-sink-inputs\n")
+    line = cli.readline()
+    try:
+        while line:
+            line = cli.readline()
+            if "index" in line:
+                index_id = re.findall(r'index: (\d+)', line)
+                index_id = int(index_id[0])
+            if index_id > -1:
+                # so an index was already found
+                # now look in the remaining lines for our app
+                if "application.name" in line:
+                    if "VLC" in line:
+                        # found it. VLC usees this index_id
+                        vlc_sink_input = index_id
+                        break
+    except socket.timeout:
+        pass
+    cli.close()
+    return vlc_sink_input
+
+def set_volume(sink_input, vol=0.5):
+    '''
+    Sets the volume of a pulse audio client.
+    
+    Arguments:
+    sink_input (required): The integer id of the pulseaudio sink_input
+    vol (optional)   : set the volume to this value in percent. 
+                          Defaults to 50%.
+    '''
+    client = pulse.sink_input_info(sink_input)
+    volume = client.volume
+
+    volume.value_flat = vol
+    pulse.volume_set(client, volume)
 
 def match_station_name(phrase):
     """Takes the user utterance and attempts to match a specific station
@@ -98,6 +144,11 @@ class RadioBrowserSkill(CommonPlaySkill):
         url = data["url"]
         LOG.info(f"Playing from {url}")
         self.audioservice.play(url)
+        pulse = pulsectl.Pulse('radio-skill-pulse-client')
+        vlc = find_vlc()
+        LOG.info("setting volume for VLC to 0.6")
+        set_volume(vlc, 0.6)
+        pulse.close()
 
     def handle_intent(self, message, type):
         # Generic method for handling intents
