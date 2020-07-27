@@ -40,6 +40,7 @@ def find_vlc():
     except socket.timeout:
         pass
     cli.close()
+    LOG.debug('vlc sink: ' + str(vlc_sink_input))
     return vlc_sink_input
 
 def set_volume(sink_input, vol=0.5):
