@@ -3,6 +3,8 @@ dependencies:
     - inflect
     - pyradios
     - word2number
+    - pulsectl
+    - socket
 
   system:
     all: vlc
