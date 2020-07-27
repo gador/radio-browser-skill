@@ -152,7 +152,7 @@ class RadioBrowserSkill(CommonPlaySkill):
         # Generic method for handling intents
         matched_station = match_station_name(message.data[type])
         LOG.info(f"Playing from {matched_station[2]['url']}")
-        self.CPS_play(matched_station[2]["url"])
+        self.CPS_play(matched_station[2]["url"], "vlc")
         vlc = find_vlc()
         LOG.info("setting volume for VLC to 0.6")
         set_volume(vlc, 0.6)
