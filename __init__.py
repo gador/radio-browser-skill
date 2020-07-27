@@ -51,11 +51,13 @@ def set_volume(sink_input, vol=0.5):
     vol (optional)   : set the volume to this value in percent. 
                           Defaults to 50%.
     '''
+    pulse = pulsectl.Pulse('radio-skill-pulse-client')
     client = pulse.sink_input_info(sink_input)
     volume = client.volume
 
     volume.value_flat = vol
     pulse.volume_set(client, volume)
+    pulse.close()
 
 def match_station_name(phrase):
     """Takes the user utterance and attempts to match a specific station
@@ -150,11 +152,9 @@ class RadioBrowserSkill(CommonPlaySkill):
         matched_station = match_station_name(message.data[type])
         LOG.info(f"Playing from {matched_station[2]['url']}")
         self.CPS_play(matched_station[2]["url"])
-        pulse = pulsectl.Pulse('radio-skill-pulse-client')
         vlc = find_vlc()
         LOG.info("setting volume for VLC to 0.6")
         set_volume(vlc, 0.6)
-        pulse.close()
 
     @intent_file_handler("radio.station.intent")
     def handle_radio_station(self, message):
