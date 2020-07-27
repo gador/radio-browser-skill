@@ -144,17 +144,17 @@ class RadioBrowserSkill(CommonPlaySkill):
         url = data["url"]
         LOG.info(f"Playing from {url}")
         self.audioservice.play(url)
-        pulse = pulsectl.Pulse('radio-skill-pulse-client')
-        vlc = find_vlc()
-        LOG.info("setting volume for VLC to 0.6")
-        set_volume(vlc, 0.6)
-        pulse.close()
 
     def handle_intent(self, message, type):
         # Generic method for handling intents
         matched_station = match_station_name(message.data[type])
         LOG.info(f"Playing from {matched_station[2]['url']}")
         self.CPS_play(matched_station[2]["url"])
+        pulse = pulsectl.Pulse('radio-skill-pulse-client')
+        vlc = find_vlc()
+        LOG.info("setting volume for VLC to 0.6")
+        set_volume(vlc, 0.6)
+        pulse.close()
 
     @intent_file_handler("radio.station.intent")
     def handle_radio_station(self, message):
