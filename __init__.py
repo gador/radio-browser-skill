@@ -13,6 +13,7 @@ from word2number import w2n
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from mycroft.util.log import LOG
 
+
 def match_station_name(phrase):
     """Takes the user utterance and attempts to match a specific station
 
@@ -28,7 +29,7 @@ def match_station_name(phrase):
         rb = RadioBrowser()
     except Exception as e:
         LOG.exception("Failed to load pyradios" + repr(e))
-    
+
     def search_station_name(name):
         LOG.info(f"Searching for {name}")
         results = rb.search(name=name)
@@ -47,7 +48,6 @@ def match_station_name(phrase):
             name = name.replace(number, str(w2n.word_to_num(number)))
         return name
 
-    
     parsed = search_station_name(phrase)
     if len(parsed) > 0:
         # If an exatch match has been found return.
