@@ -13,50 +13,6 @@ from word2number import w2n
 from mycroft.skills.common_play_skill import CommonPlaySkill, CPSMatchLevel
 from mycroft.util.log import LOG
 
-def find_vlc():
-    '''
-    Find the input_sink used by VLC media player.
-    Returns input as int. Returns -1 if not found.
-    '''
-    cli = pulsectl.connect_to_cli(socket_timeout=1)
-    vlc_sink_input = -1
-    index_id = -1
-    cli.write("list-sink-inputs\n")
-    line = cli.readline()
-    try:
-        while line:
-            line = cli.readline()
-            if "index" in line:
-                index_id = re.findall(r'index: (\d+)', line)
-                index_id = int(index_id[0])
-            if index_id > -1:
-                # so an index was already found
-                # now look in the remaining lines for our app
-                if "application.name" in line:
-                    if "VLC" in line:
-                        # found it. VLC usees this index_id
-                        vlc_sink_input = index_id
-                        break
-    except socket.timeout:
-        pass
-    cli.close()
-    return vlc_sink_input
-
-def set_volume(sink_input, vol=0.5):
-    '''
-    Sets the volume of a pulse audio client.
-    
-    Arguments:
-    sink_input (required): The integer id of the pulseaudio sink_input
-    vol (optional)   : set the volume to this value in percent. 
-                          Defaults to 50%.
-    '''
-    client = pulse.sink_input_info(sink_input)
-    volume = client.volume
-
-    volume.value_flat = vol
-    pulse.volume_set(client, volume)
-
 def match_station_name(phrase):
     """Takes the user utterance and attempts to match a specific station
 
@@ -72,10 +28,27 @@ def match_station_name(phrase):
         rb = RadioBrowser()
     except Exception as e:
         LOG.exception("Failed to load pyradios" + repr(e))
-    LOG.info(f"Searching for {phrase}")
-    results = rb.search(name=phrase)
-    parsed = json.loads(json.dumps(results))
+    
+    def search_station_name(name):
+        LOG.info(f"Searching for {name}")
+        results = rb.search(name=name)
+        return json.loads(json.dumps(results))
 
+    def replace_numbers(name):
+        num = re.findall("[0-9]+", name)
+        inf_eng = inflect.engine()
+        for number in num:
+            name = name.replace(number, inf_eng.number_to_words(number))
+        return name
+
+    def replace_written_numbers(name):
+        num = re.findall(numbers_regex, name)
+        for number in num:
+            name = name.replace(number, str(w2n.word_to_num(number)))
+        return name
+
+    
+    parsed = search_station_name(phrase)
     if len(parsed) > 0:
         # If an exatch match has been found return.
         LOG.info(f"Found {parsed[0]['name']} ({parsed[0]['url_resolved']})")
@@ -83,17 +56,16 @@ def match_station_name(phrase):
     elif re.search(" [0-9]+ ", phrase):
         # If no match has been found, replace any digits (1,2,3) with text
         # (one, two, three) and repeat search.
-        num = re.findall("[0-9]+", phrase)
-        inf_eng = inflect.engine()
-        for number in num:
-            phrase = phrase.replace(num, inf_eng.number_to_words(number))
-        match_station_name(phrase)
+        parsed = search_station_name(replace_numbers(phrase))
+        if len(parsed) > 0:
+            LOG.info(f"Found {parsed[0]['name']} ({parsed[0]['url_resolved']})")
+            return phrase, CPSMatchLevel.EXACT, {"url": parsed[0]["url_resolved"]}
     elif re.search(numbers_regex, phrase):
         # As above but reversed: change strings to ints and repeat search.
-        num = re.findall(numbers_regex, phrase)
-        for number in num:
-            phrase = phrase.replace(number, str(w2n.word_to_num(number)))
-        match_station_name(phrase)
+        parsed = search_station_name(replace_written_numbers(phrase))
+        if len(parsed) > 0:
+            LOG.info(f"Found {parsed[0]['name']} ({parsed[0]['url_resolved']})")
+            return phrase, CPSMatchLevel.EXACT, {"url": parsed[0]["url_resolved"]}
     else:
         return None
 
@@ -144,17 +116,16 @@ class RadioBrowserSkill(CommonPlaySkill):
         url = data["url"]
         LOG.info(f"Playing from {url}")
         self.audioservice.play(url)
-        pulse = pulsectl.Pulse('radio-skill-pulse-client')
-        vlc = find_vlc()
-        LOG.info("setting volume for VLC to 0.6")
-        set_volume(vlc, 0.6)
-        pulse.close()
 
     def handle_intent(self, message, type):
         # Generic method for handling intents
         matched_station = match_station_name(message.data[type])
-        LOG.info(f"Playing from {matched_station[2]['url']}")
-        self.CPS_play(matched_station[2]["url"])
+        if matched_station is not None:
+            LOG.info(f"Playing from {matched_station[2]['url']}")
+            self.CPS_play(matched_station[2]["url"], utterance="vlc")
+        else:
+            LOG.info('cannot find radio named: ' + str(message.data[type]))
+            self.speak_dialog("sorry")
 
     @intent_file_handler("radio.station.intent")
     def handle_radio_station(self, message):
