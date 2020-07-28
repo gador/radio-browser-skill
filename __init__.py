@@ -114,8 +114,12 @@ class RadioBrowserSkill(CommonPlaySkill):
         if self.audioservice.is_playing:
             self.audioservice.stop()
         url = data["url"]
-        LOG.info(f"Playing from {url}")
-        self.audioservice.play(url)
+        if url is not None:
+            LOG.info("Playing from " + str(url))
+            self.CPS_play(url, utterance="vlc")
+        else:
+            LOG.info('cannot find radio from url: ' + str(url))
+            self.speak_dialog("sorry")
 
     def handle_intent(self, message, type):
         # Generic method for handling intents
